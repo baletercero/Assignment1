@@ -1,0 +1,8 @@
+actDat <- read.csv("activity.csv",header = TRUE)
+head(actDat)
+str(actDat)
+#library(lubridate)
+#actDat$date <- ymd(actDat$date)
+stepsByDay <- with(actDat,aggregate(steps,by=list(date),FUN="sum"))
+hist(stepsByDay$x)
+summary(stepsByDay$x)

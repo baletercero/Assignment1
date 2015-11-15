@@ -1,0 +1,114 @@
+Assignment 1 
+Pablo Tercero
+========================================================
+
+This is the R Markdown document for Assignment 1 on Reproducible Research's coursera course.I present below the steps taken to produce the answer to the assignment questions:
+
+**Loading the data**
+First I loaded the data and looked at the nature of the data
+
+```{r}
+actDat <- read.csv("activity.csv",header = TRUE)
+head(actDat)
+str(actDat)
+```
+
+```
+Then 1st question:
+**What is mean total number of steps taken per day?**
+
+First I aggregate the data by date getting the total steps by date and then I plot them 
+To get the mean and median I use summary
+```{r}
+stepsByDay <- with(actDat,aggregate(steps,by=list(date),FUN="sum"))
+hist(stepsByDay$x)
+summary(stepsByDay$x)
+
+```
+
+**What is the average daily activity pattern?**
+I use tapply to get the mean steps by interval and then I plot using line (type='l')
+The max is obtained with which.max
+
+```{r}
+stepsByInterval <- tapply(actDat$steps,actDat$interval,mean,na.rm=TRUE)
+plot(stepsByInterval,type = 'l')
+which.max(stepsByInterval) #it's interval 104
+```
+
+**Imputing missing values**
+This took a while but doing some reseach I found an R-bloggers post about this great process/tool for imputing missing data
+http://www.r-bloggers.com/imputing-missing-data-with-r-mice-package/
+
+I loaded the necessary library and followed steps to get the # of NAs 
+These can also be obtained with 
+```{r}
+summary(actDat)
+```
+that gave us 2304 NAs, but the package was really useful to find a method to impute values for NAs
+```{r}
+library(mice)
+md.pattern(actDat)
+```
+
+The method is mice , it uses method pmm (predictive mean matching) but there are other methods
+There's a nice paper at : http://www.stefvanbuuren.nl/publications/MICE%20in%20R%20-%20Draft.pdf
+(the code took a long time to evaluate so I only use 2 iterations in this file but I used 50 to run my own code , tests , the more iterations the better)
+```{r}
+tempData <- mice(actDat,maxit = 2,method = 'pmm',seed = 500)
+summary(tempData)
+```
+tempData$imp$steps shows the steps and results for each iteration, I don't ouput that either
+
+```{r}
+completeData <- complete(tempData,1)
+head(completeData)
+```
+
+completeData now has all of the data without the NAs and is the new data set to compare with the set with NAs
+
+Using the exact same code with a different data set , I get the plot and the mean,median
+
+```{r}
+stepsByDayComp <- with(completeData,aggregate(steps,by=list(date),FUN="sum"))
+hist(stepsByDayComp$x)
+summary(stepsByDayComp$x)
+```
+
+**Are there differences in activity patterns between weekdays and weekends?**
+
+ I noticed that the date field needs to be converted to data , so I use lubridate to convert
+```{r}
+library(lubridate)
+actDat$date <- ymd(actDat$date)
+```
+
+The steps below accomplish the following 
+1. I get a new data set to manipulate the data , create weekend info etc
+2. I create two new columns 
+  + WeekD is the weekday based on the date info 
+  + Weekend which is a Y for weekend, N for "weekday"" based on what weekday(the variable) is
+3. I find the mean steps for each interval  for weekend and weekdays
+4. I rename the columns of the data frame (obtained with aggregate , mean) with better names
+
+I do head and tail of the data sets created to check if the variables were added correctly
+
+```{r}
+complDat <- completeData
+complDat$WeekD <- weekdays(ymd(complDat$date))
+complDat$Weekend = ifelse(complDat$WeekD %in% c("Saturday","Sunday"),"Y","N")
+head(complDat)
+tail(complDat)
+complstepsByIntervalAgg <- aggregate(complDat$steps,list(complDat$interval,as.factor(complDat$Weekend)),mean,na.rm=TRUE)
+colnames(complstepsByIntervalAgg) <- c('interval','Weekend','stepsMean')
+head(complstepsByIntervalAgg)
+tail(complstepsByIntervalAgg)
+```
+
+Finally I make a ggplot (line plot) with facets to represent the difference in mean steps on weekdays and weekends
+```{r}
+library(ggplot2)
+ggplot(complstepsByIntervalAgg,aes(interval,stepsMean))+geom_line()+facet_grid(.~Weekend)
+```
+
+This completes the assignment
